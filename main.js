@@ -198,11 +198,122 @@ function reset(){
   drawScore();
 }
 
-reset();
+function move(moveDir){
+  var isMoved = false;
+  var rowDir = 1, rowNext = 0, rowFirst = 0;
+  var colDir = 1, colNext = 0, colFirst = 0;
 
-TMD.print('debug-data', {
-  moveDir: moveDir,
-  isAutoMoving: isAutoMoving,
-  isGameOver: isGameOver,
-  biggestNumber: biggestNumber,
-});
+  switch (moveDir) {
+    case 'UP':
+      rowDir =  1;
+      rowNext = -1;
+      rowFirst = 1;
+      break;
+    case 'DOWN':
+      rowDir = -1;
+      rowNext =  1;
+      rowFirst = NUM_OF_ROW-2;
+      break;
+    case 'LEFT':
+      colDir =  1;
+      colNext = -1;
+      colFirst = 1;
+      break;
+    case 'RIGHT':
+      colDir = -1;
+      colNext =  1;
+      colFirst = NUM_OF_COLUMN-2;
+      break;
+  }
+
+  for(var i=rowFirst; i>=0&&i<NUM_OF_ROW; i+=rowDir){
+    for(var j=colFirst; j>=0&&j<NUM_OF_COLUMN; j+=colDir){
+      var currentBlock = boardData[i][j];
+      if(currentBlock.value==0) continue;
+      var nextBlock = boardData[i+rowNext][j+colNext];
+      var willMove = nextBlock.value==0;
+      var willMerge = nextBlock.value==currentBlock.value && !currentBlock.isMerged && !nextBlock.isMerged;
+      if(willMove || willMerge){
+        if(willMerge){
+          currentBlock.value *= 2;
+          currentBlock.isMerged = true;
+          score += currentBlock.value;
+          biggestNumber = Math.max(currentBlock.value, biggestNumber);
+        }
+        boardData[i+rowNext][j+colNext] = currentBlock;
+        boardData[i][j] = resetBlockData();
+        isMoved = true;
+      }
+    }
+  }
+ return isMoved;
+}
+
+function resetBoardMergeData(boardData){
+  for(var i=0; i<boardData.length; i++){
+    for(var j=0; j<boardData[i].length; j++){
+      boardData[i][j].isMerged = false;
+    }
+  }
+}
+
+function checkGameOver(){
+  var isGameOver = true;
+  for(var i=0; i<boardData.length; i++){
+    for(var j=0; j<boardData[i].length; j++){
+      if(boardData[i][j].value == 0) isGameOver = false;
+      else if(i<boardData.length-1 && boardData[i][j].value == boardData[i+1][j].value) isGameOver = false;
+      else if(j<boardData[i].length-1 && boardData[i][j].value == boardData[i][j+1].value) isGameOver = false;
+      if(!isGameOver) break;
+    }
+  }
+  return isGameOver;
+}
+
+var mainInterval = window.setInterval(function(){
+  if(TMI.keyboard.checkKeyPressed(KEYSET.ESC)){
+    reset();
+  }
+
+  if(!isGameOver && !isAutoMoving){
+    if(TMI.keyboard.checkKeyPressed(KEYSET.UP))    moveDir = 'UP';
+    if(TMI.keyboard.checkKeyPressed(KEYSET.DOWN))  moveDir = 'DOWN';
+    if(TMI.keyboard.checkKeyPressed(KEYSET.LEFT))  moveDir = 'LEFT';
+    if(TMI.keyboard.checkKeyPressed(KEYSET.RIGHT)) moveDir = 'RIGHT';
+  }
+
+  if(moveDir){
+    var isBoardUpdated = false;
+    if(move(moveDir)){
+      isBoardUpdated = true;
+      isAutoMoving = true;
+    }
+    else {
+      moveDir = null;
+      if(isAutoMoving){
+        isBoardUpdated = true;
+        isAutoMoving = false;
+        resetBoardMergeData(boardData);
+        putNewBlock(boardData);
+        isGameOver = checkGameOver();
+        TMI.keyboard.clearKeyPressed();
+      }
+    }
+
+    if(isBoardUpdated){
+      drawBoard();
+      drawScore();
+    }
+    if(isGameOver) drawGameOver();
+    if(biggestNumber >= 2048) drawWin();
+  }
+
+  TMD.print('debug-data', {
+    moveDir: moveDir,
+    isAutoMoving: isAutoMoving,
+    isGameOver: isGameOver,
+    biggestNumber: biggestNumber,
+  });
+}, SPEED);
+
+reset();
